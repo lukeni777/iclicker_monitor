@@ -1,8 +1,10 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from course_manager import CourseManager
 import datetime
 import os
+import shutil
+import re
 
 def validate_time_format(time_str):
     """验证时间格式"""
@@ -74,9 +76,19 @@ class CourseGUI:
         course_name_entry = ttk.Entry(input_frame, textvariable=self.course_name_var, width=30)
         course_name_entry.grid(row=4, column=1, columnspan=2, pady=5)
         
+        # 课程图标截图上传
+        ttk.Label(input_frame, text="课程图标:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.icon_path_var = tk.StringVar()
+        self.icon_path_var.set("未选择图片")
+        self.icon_label = ttk.Label(input_frame, textvariable=self.icon_path_var, width=30, relief=tk.SUNKEN)
+        self.icon_label.grid(row=5, column=1, sticky=tk.W, pady=5)
+        
+        self.upload_icon_button = ttk.Button(input_frame, text="选择截图", command=self.upload_course_icon)
+        self.upload_icon_button.grid(row=5, column=2, sticky=tk.W, pady=5)
+        
         # 按钮区域
         button_frame = ttk.Frame(input_frame)
-        button_frame.grid(row=5, column=0, columnspan=3, pady=10)
+        button_frame.grid(row=6, column=0, columnspan=3, pady=10)
         
         self.add_button = ttk.Button(button_frame, text="添加课程", command=self.add_course)
         self.add_button.pack(side=tk.LEFT, padx=5)
@@ -129,7 +141,7 @@ class CourseGUI:
         
         # 顶部保存按钮区域 - 添加更明显的保存按钮
         top_save_frame = ttk.Frame(input_frame)
-        top_save_frame.grid(row=6, column=0, columnspan=3, pady=10)
+        top_save_frame.grid(row=7, column=0, columnspan=3, pady=10)
         
         self.top_save_button = ttk.Button(top_save_frame, text="💾 保存课程表", 
                                          command=self.save_courses, 
@@ -187,6 +199,13 @@ class CourseGUI:
             self.course_code_var.set(course["course_code"])
             self.course_name_var.set(course["course_name"])
             
+            # 检查课程图标是否存在
+            icon_path = self.manager.get_course_icon_path(course["course_name"])
+            if icon_path and os.path.exists(icon_path):
+                self.icon_path_var.set(f"已上传: {os.path.basename(icon_path)}")
+            else:
+                self.icon_path_var.set("未选择图片")
+            
             # 启用更新和删除按钮
             self.update_button.config(state=tk.NORMAL)
             self.delete_button.config(state=tk.NORMAL)
@@ -198,6 +217,7 @@ class CourseGUI:
         self.end_time_var.set("")
         self.course_code_var.set("")
         self.course_name_var.set("")
+        self.icon_path_var.set("未选择图片")
         self.selected_course_id = None
         
         # 禁用更新和删除按钮
@@ -207,6 +227,71 @@ class CourseGUI:
         # 取消选择
         self.course_tree.selection_remove(self.course_tree.selection())
     
+    def sanitize_filename(self, filename):
+        """移除文件名中的特殊字符"""
+        # 移除非字母数字、中文和下划线的字符
+        return re.sub(r'[^\w\u4e00-\u9fa5_-]', '', filename)
+    
+    def upload_course_icon(self):
+        """上传课程图标截图"""
+        # 打开文件选择对话框
+        file_path = filedialog.askopenfilename(
+            title="选择课程图标截图",
+            filetypes=[("图片文件", "*.png;*.jpg;*.jpeg;*.gif;*.bmp")]
+        )
+        
+        if file_path:
+            self.icon_path_var.set(f"已选择: {os.path.basename(file_path)}")
+    
+    def save_course_icon(self, course_name, icon_path):
+        """保存课程图标到指定目录"""
+        if not icon_path or icon_path == "未选择图片" or icon_path.startswith("已上传:"):
+            return True
+        
+        try:
+            # 创建保存目录（如果不存在）
+            save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "course")
+            os.makedirs(save_dir, exist_ok=True)
+            
+            # 获取原文件扩展名
+            _, ext = os.path.splitext(icon_path)
+            if ext == "":
+                # 如果没有扩展名，默认使用.png
+                ext = ".png"
+            
+            # 清理课程名称作为文件名
+            sanitized_name = self.sanitize_filename(course_name)
+            if not sanitized_name:
+                messagebox.showerror("错误", "课程名称无法转换为有效的文件名")
+                return False
+            
+            # 构建保存路径
+            save_path = os.path.join(save_dir, f"{sanitized_name}{ext}")
+            
+            # 如果文件存在，先删除
+            if os.path.exists(save_path):
+                os.remove(save_path)
+            
+            # 复制文件
+            if icon_path.startswith("已选择:"):
+                # 从已选择的路径中提取实际路径
+                actual_path = icon_path.replace("已选择: ", "")
+                # 重新打开文件选择对话框获取完整路径
+                file_path = filedialog.askopenfilename(
+                    title="重新选择课程图标截图",
+                    filetypes=[("图片文件", "*.png;*.jpg;*.jpeg;*.gif;*.bmp")]
+                )
+                if file_path:
+                    shutil.copy2(file_path, save_path)
+            else:
+                shutil.copy2(icon_path, save_path)
+            
+            print(f"课程图标已保存到: {save_path}")
+            return True
+        except Exception as e:
+            messagebox.showerror("保存错误", f"保存课程图标时发生错误: {str(e)}")
+            return False
+    
     def add_course(self):
         """添加课程"""
         # 获取输入值
@@ -215,6 +300,7 @@ class CourseGUI:
         end_time = self.end_time_var.get()
         course_code = self.course_code_var.get().strip()
         course_name = self.course_name_var.get().strip()
+        icon_path = self.icon_path_var.get()
         
         # 验证输入
         if not validate_time_format(start_time):
@@ -239,6 +325,11 @@ class CourseGUI:
         
         # 添加课程
         course_id = self.manager.add_course(day, start_time, end_time, course_code, course_name)
+        
+        # 保存课程图标
+        if not icon_path.startswith("未选择"):
+            self.save_course_icon(course_name, icon_path)
+        
         messagebox.showinfo("成功", f"课程添加成功！课程ID: {course_id}")
         
         # 刷新列表并清空输入
@@ -257,6 +348,7 @@ class CourseGUI:
         end_time = self.end_time_var.get()
         course_code = self.course_code_var.get().strip()
         course_name = self.course_name_var.get().strip()
+        icon_path = self.icon_path_var.get()
         
         # 验证输入
         if not validate_time_format(start_time):
@@ -279,8 +371,36 @@ class CourseGUI:
             messagebox.showerror("输入错误", "课程名称不能为空")
             return
         
+        # 获取原课程信息
+        old_course = self.manager.get_course_by_id(self.selected_course_id)
+        old_name = old_course["course_name"]
+        
         # 更新课程
         if self.manager.update_course(self.selected_course_id, day, start_time, end_time, course_code, course_name):
+            # 如果课程名称改变，需要处理图标文件
+            if old_name != course_name:
+                # 检查旧图标是否存在
+                old_icon_path = self.manager.get_course_icon_path(old_name)
+                if old_icon_path and os.path.exists(old_icon_path):
+                    # 如果上传了新图标，直接保存新图标
+                    if not icon_path.startswith("未选择") and not icon_path.startswith("已上传:"):
+                        self.save_course_icon(course_name, icon_path)
+                    else:
+                        # 否则，重命名旧图标
+                        try:
+                            _, ext = os.path.splitext(old_icon_path)
+                            save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "course")
+                            new_icon_path = os.path.join(save_dir, f"{self.sanitize_filename(course_name)}{ext}")
+                            if os.path.exists(new_icon_path):
+                                os.remove(new_icon_path)
+                            os.rename(old_icon_path, new_icon_path)
+                        except Exception as e:
+                            print(f"重命名课程图标时发生错误: {str(e)}")
+            else:
+                # 课程名称未改变，直接保存新图标（如果有）
+                if not icon_path.startswith("未选择") and not icon_path.startswith("已上传:"):
+                    self.save_course_icon(course_name, icon_path)
+            
             messagebox.showinfo("成功", "课程更新成功！")
             # 刷新列表并清空输入
             self.load_course_list()
@@ -303,6 +423,15 @@ class CourseGUI:
         if messagebox.askyesno("确认删除", 
                               f"确定要删除课程 '{course['course_name']}' (课号: {course['course_code']}) 吗？"):
             if self.manager.delete_course(self.selected_course_id):
+                # 删除课程图标
+                icon_path = self.manager.get_course_icon_path(course["course_name"])
+                if icon_path and os.path.exists(icon_path):
+                    try:
+                        os.remove(icon_path)
+                        print(f"已删除课程图标: {icon_path}")
+                    except Exception as e:
+                        print(f"删除课程图标时发生错误: {str(e)}")
+                
                 messagebox.showinfo("成功", "课程删除成功！")
                 # 刷新列表并清空输入
                 self.load_course_list()

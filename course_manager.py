@@ -2,6 +2,7 @@ import json
 import os
 import datetime
 import csv
+import glob
 
 class CourseManager:
     def __init__(self, data_file="courses.json", csv_file="courses.csv"):
@@ -193,6 +194,48 @@ class CourseManager:
                 results.append(course)
         
         return results
+    
+    def get_course_icon_path(self, course_name):
+        """获取课程图标的路径
+        
+        Args:
+            course_name: 课程名称
+            
+        Returns:
+            str: 课程图标的完整路径，如果不存在则返回None
+        """
+        try:
+            # 构建保存目录路径
+            icon_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "course")
+            
+            if not os.path.exists(icon_dir):
+                return None
+            
+            # 清理课程名称（与GUI中的处理方式保持一致）
+            import re
+            sanitized_name = re.sub(r'[^\w\u4e00-\u9fa5_-]', '', course_name)
+            
+            if not sanitized_name:
+                return None
+            
+            # 查找匹配的图片文件
+            # 尝试不同的图片扩展名
+            extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
+            for ext in extensions:
+                icon_path = os.path.join(icon_dir, f"{sanitized_name}{ext}")
+                if os.path.exists(icon_path):
+                    return icon_path
+            
+            # 如果没有找到，尝试使用glob匹配
+            pattern = os.path.join(icon_dir, f"{sanitized_name}.*")
+            matches = glob.glob(pattern)
+            if matches:
+                return matches[0]
+            
+            return None
+        except Exception as e:
+            print(f"获取课程图标路径时发生错误: {str(e)}")
+            return None
 
 # 如果直接运行此文件，可以进行简单的测试
 if __name__ == "__main__":
