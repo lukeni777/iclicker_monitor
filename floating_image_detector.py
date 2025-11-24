@@ -12,8 +12,8 @@ class FloatingImageDetector:
     def __init__(self):
         # 创建主窗口
         self.root = tk.Tk()
-        self.root.title("图像检测工具")
-        self.root.geometry("250x150")
+        self.root.title("界面检测工具")
+        self.root.geometry("280x160")
         self.root.overrideredirect(True)  # 去除窗口边框
         self.root.attributes("-alpha", 0.9)  # 设置窗口透明度
         self.root.attributes("-topmost", True)  # 窗口置顶
@@ -29,8 +29,15 @@ class FloatingImageDetector:
         # 初始化变量
         self.is_detecting = False
         self.detection_thread = None
-        self.reference_images = []
+        self.reference_images = {}  # 改为字典，key为文件夹名称，value为该文件夹下的所有参考图像
         self.detection_result = "未检测"
+        self.current_interface = "未检测"
+        
+        # 定义特殊处理的界面名称
+        self.special_interfaces = {
+            "course_not_started": False,
+            "course_starts": False
+        }
         
         # 加载参考图像
         self.load_reference_images()
@@ -53,14 +60,15 @@ class FloatingImageDetector:
         self.root.geometry(f"+{x}+{y}")
     
     def create_widgets(self):
-        """创建界面组件"""
+        """创建界面组件，优化显示效果"""
         # 创建标题标签
         title_label = tk.Label(
             self.root,
-            text="图像检测工具",
+            text="界面检测工具",
             font=("微软雅黑", 12, "bold"),
             fg="white",
-            bg="#34495e"
+            bg="#34495e",
+            height=2
         )
         title_label.pack(fill=tk.X)
         
@@ -70,12 +78,14 @@ class FloatingImageDetector:
         status_label = tk.Label(
             self.root,
             textvariable=self.status_var,
-            font=("微软雅黑", 10),
+            font=("微软雅黑", 11, "bold"),
             fg="white",
             bg="#2c3e50",
-            wraplength=230
+            wraplength=260,
+            height=2,
+            justify="center"
         )
-        status_label.pack(pady=10)
+        status_label.pack(pady=5, padx=10, fill=tk.BOTH, expand=True)
         
         # 创建按钮框架
         button_frame = tk.Frame(self.root, bg="#2c3e50")
@@ -93,7 +103,7 @@ class FloatingImageDetector:
             bd=0,
             relief=tk.FLAT,
             padx=5,
-            pady=3
+            pady=4
         )
         self.detect_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
         
@@ -109,88 +119,177 @@ class FloatingImageDetector:
             bd=0,
             relief=tk.FLAT,
             padx=5,
-            pady=3
+            pady=4
         )
         exit_button.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=2)
+        
+        # 创建提示标签
+        tip_label = tk.Label(
+            self.root,
+            text="ESC键快速退出",
+            font=("微软雅黑", 8),
+            fg="#bdc3c7",
+            bg="#2c3e50"
+        )
+        tip_label.pack(pady=(0, 5))
     
     def load_reference_images(self):
-        """加载参考图像"""
+        """加载所有参考图像，从img/test下的所有子文件夹"""
         try:
-            reference_dir = "img/test/course_menu"
-            if os.path.exists(reference_dir):
-                for filename in os.listdir(reference_dir):
-                    if filename.endswith((".PNG", ".png", ".JPG", ".jpg", ".JPEG", ".jpeg")):
-                        img_path = os.path.join(reference_dir, filename)
-                        # 读取图像并转换为灰度图
-                        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-                        if img is not None:
-                            self.reference_images.append(img)
-                            print(f"加载参考图像: {filename}")
-                print(f"共加载 {len(self.reference_images)} 张参考图像")
+            base_dir = "img/test"
+            if os.path.exists(base_dir):
+                # 获取base_dir下的所有子文件夹
+                subfolders = [f for f in os.listdir(base_dir) 
+                             if os.path.isdir(os.path.join(base_dir, f))]
+                
+                total_images = 0
+                for folder in subfolders:
+                    folder_path = os.path.join(base_dir, folder)
+                    folder_images = []
+                    
+                    # 加载该文件夹下的所有图片
+                    for filename in os.listdir(folder_path):
+                        if filename.lower().endswith((".png", ".jpg", ".jpeg")):
+                            img_path = os.path.join(folder_path, filename)
+                            try:
+                                # 读取图像并转换为灰度图
+                                img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+                                if img is not None:
+                                    folder_images.append(img)
+                                    print(f"加载参考图像: {folder}/{filename}")
+                            except Exception as e:
+                                print(f"加载图像 {folder}/{filename} 时出错: {e}")
+                    
+                    if folder_images:
+                        self.reference_images[folder] = folder_images
+                        total_images += len(folder_images)
+                        print(f"文件夹 '{folder}' 加载 {len(folder_images)} 张图像")
+                
+                print(f"\n总共加载 {total_images} 张参考图像，来自 {len(self.reference_images)} 个文件夹")
+                print(f"可识别的界面类型: {list(self.reference_images.keys())}")
             else:
-                print(f"参考图像目录不存在: {reference_dir}")
+                print(f"参考图像基础目录不存在: {base_dir}")
         except Exception as e:
             print(f"加载参考图像时出错: {e}")
     
     def capture_screen(self):
-        """捕获当前屏幕画面"""
+        """捕获当前屏幕画面，优化性能和错误处理"""
         try:
+            # 获取屏幕尺寸，仅捕获需要的区域
             screenshot = pyautogui.screenshot()
+            
             # 转换为OpenCV格式
             screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+            
             # 转换为灰度图以提高匹配速度
             gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+            
+            # 应用轻微的高斯模糊以减少噪声影响
+            gray_screenshot = cv2.GaussianBlur(gray_screenshot, (3, 3), 0)
+            
             return gray_screenshot
         except Exception as e:
             print(f"屏幕捕获出错: {e}")
             return None
     
     def match_template(self, screen_gray, template, threshold=0.85):
-        """使用模板匹配算法进行图像比对"""
+        """使用模板匹配算法进行图像比对，优化了匹配精度和性能"""
         try:
             # 获取模板的高度和宽度
             h, w = template.shape
             
-            # 使用TM_CCOEFF_NORMED方法进行模板匹配
+            # 如果屏幕图像比模板小，直接返回不匹配
+            if screen_gray.shape[0] < h or screen_gray.shape[1] < w:
+                return False
+            
+            # 使用TM_CCOEFF_NORMED方法进行模板匹配（性能和准确性的平衡）
             result = cv2.matchTemplate(screen_gray, template, cv2.TM_CCOEFF_NORMED)
             
             # 找出匹配度大于阈值的位置
-            locations = np.where(result >= threshold)
+            max_val = cv2.minMaxLoc(result)[1]  # 获取最大匹配值
             
-            # 如果有匹配项，返回True
-            return len(locations[0]) > 0
+            # 如果最大匹配值大于阈值，认为匹配成功
+            return max_val >= threshold
         except Exception as e:
             print(f"模板匹配出错: {e}")
             return False
     
     def detect_screen(self):
-        """检测屏幕上是否包含所有参考图像"""
+        """检测屏幕上的界面类型，支持多界面识别和特殊情况处理"""
         while self.is_detecting:
-            # 捕获当前屏幕
-            screen_gray = self.capture_screen()
-            if screen_gray is None:
-                time.sleep(0.5)
-                continue
+            try:
+                # 捕获当前屏幕
+                screen_gray = self.capture_screen()
+                if screen_gray is None:
+                    time.sleep(0.5)
+                    continue
+                
+                # 重置特殊界面检测状态
+                for interface in self.special_interfaces:
+                    self.special_interfaces[interface] = False
+                
+                # 重置当前界面
+                detected_interfaces = []
+                
+                # 遍历所有参考图像文件夹进行检测
+                for interface_name, templates in self.reference_images.items():
+                    # 检查该界面类型的所有模板是否都匹配
+                    interface_matched = True
+                    for template in templates:
+                        if not self.match_template(screen_gray, template):
+                            interface_matched = False
+                            break
+                    
+                    if interface_matched:
+                        detected_interfaces.append(interface_name)
+                        # 更新特殊界面检测状态
+                        if interface_name in self.special_interfaces:
+                            self.special_interfaces[interface_name] = True
+                
+                # 处理特殊情况
+                current_interface = self._handle_special_cases(detected_interfaces)
+                
+                # 更新检测结果
+                self._update_detection_result(current_interface)
+                
+                # 控制检测频率，避免CPU占用过高
+                time.sleep(0.3)
+                
+            except Exception as e:
+                print(f"检测过程中出错: {e}")
+                time.sleep(1)  # 出错时延长等待时间
+    
+    def _handle_special_cases(self, detected_interfaces):
+        """处理特殊界面识别情况"""
+        # 检查是否有特殊界面需要处理
+        if self.special_interfaces["course_starts"]:
+            # 如果检测到course_starts，无论是否同时检测到course_not_started，都优先判定为course_starts
+            return "course_starts"
+        elif self.special_interfaces["course_not_started"]:
+            # 仅检测到course_not_started时，判定为course_not_started
+            return "course_not_started"
+        elif detected_interfaces:
+            # 其他情况，返回第一个检测到的界面
+            return detected_interfaces[0]
+        else:
+            # 未检测到任何界面
+            return "未检测"
+    
+    def _update_detection_result(self, interface_name):
+        """更新检测结果显示"""
+        if interface_name != self.current_interface:
+            self.current_interface = interface_name
             
-            # 检查是否所有参考图像都匹配
-            all_matched = True
-            for template in self.reference_images:
-                if not self.match_template(screen_gray, template):
-                    all_matched = False
-                    break
+            # 更新状态显示
+            display_name = interface_name.replace("_", " ").title()
+            self.status_var.set(f"当前界面：{display_name}")
             
-            # 更新检测结果
-            if all_matched:
-                self.detection_result = "course_menu"
-                self.status_var.set("当前界面：course menu")
-                self.root.configure(bg="#27ae60")  # 检测到目标时变绿色
+            # 更新窗口背景色
+            if interface_name == "未检测":
+                self.root.configure(bg="#2c3e50")  # 默认颜色
             else:
-                self.detection_result = "未检测"
-                self.status_var.set("当前界面：未检测")
-                self.root.configure(bg="#2c3e50")  # 未检测到目标时保持默认颜色
-            
-            # 控制检测频率，避免CPU占用过高
-            time.sleep(0.3)
+                self.root.configure(bg="#27ae60")  # 检测到目标时变绿色
+                print(f"检测到界面: {interface_name}")
     
     def toggle_detection(self):
         """切换检测状态"""
@@ -198,16 +297,19 @@ class FloatingImageDetector:
             # 停止检测
             self.is_detecting = False
             self.detect_button.config(text="开始检测", bg="#27ae60")
+            self.status_var.set(f"检测已停止 - 最后识别：{self.current_interface.replace('_', ' ').title()}")
             if self.detection_thread is not None:
                 self.detection_thread.join()
+            self.root.configure(bg="#2c3e50")  # 恢复默认颜色
         else:
             # 开始检测
-            if len(self.reference_images) == 0:
+            if not self.reference_images:
                 self.status_var.set("错误：未找到参考图像")
                 return
             
             self.is_detecting = True
             self.detect_button.config(text="停止检测", bg="#e74c3c")
+            self.status_var.set("正在检测界面...")
             # 在新线程中执行检测
             self.detection_thread = threading.Thread(target=self.detect_screen)
             self.detection_thread.daemon = True
@@ -227,11 +329,27 @@ if __name__ == "__main__":
         import cv2
         import numpy as np
         import PIL
+        import os
     except ImportError as e:
         print(f"缺少必要的库: {e}")
         print("请运行以下命令安装所需库:")
         print("pip install pyautogui opencv-python numpy pillow")
         exit(1)
+    
+    # 打印程序信息
+    print("=" * 60)
+    print("        界面检测工具 - 启动信息        ")
+    print("=" * 60)
+    print("程序功能：")
+    print("- 实时检测屏幕上的界面类型")
+    print("- 支持多界面类型识别")
+    print("- 处理特殊界面识别情况")
+    print("- 可拖动的悬浮窗口界面")
+    print("\n操作说明：")
+    print("- 拖动窗口任意位置移动窗口")
+    print("- 点击'开始检测'启动实时检测")
+    print("- 点击'退出'或按ESC键关闭程序")
+    print("=" * 60)
     
     # 启动程序
     app = FloatingImageDetector()
