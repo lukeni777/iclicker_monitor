@@ -9,19 +9,28 @@ import time
 from PIL import Image, ImageTk
 
 class FloatingImageDetector:
-    def __init__(self):
-        # 创建主窗口
-        self.root = tk.Tk()
-        self.root.title("界面检测工具")
-        self.root.geometry("280x160")
-        self.root.overrideredirect(True)  # 去除窗口边框
-        self.root.attributes("-alpha", 0.9)  # 设置窗口透明度
-        self.root.attributes("-topmost", True)  # 窗口置顶
+    def __init__(self, parent=None, embedded=False):
+        # 如果提供了父窗口且设置为嵌入模式，则不创建新窗口
+        self.embedded = embedded
+        if embedded and parent:
+            self.root = parent
+            self.is_embedded = True
+        else:
+            # 创建主窗口
+            self.root = tk.Tk()
+            self.root.title("界面检测工具")
+            self.root.geometry("280x160")
+            self.root.overrideredirect(True)  # 去除窗口边框
+            self.root.attributes("-alpha", 0.9)  # 设置窗口透明度
+            self.root.attributes("-topmost", True)  # 窗口置顶
+            self.is_embedded = False
         
-        # 使窗口可拖动
-        self.root.bind("<Button-1>", self.start_drag)
-        self.root.bind("<B1-Motion>", self.drag)
-        self.root.bind("<Escape>", self.exit_program)
+        # 只有在非嵌入模式下才绑定拖动和退出事件
+        if not self.embedded:
+            # 使窗口可拖动
+            self.root.bind("<Button-1>", self.start_drag)
+            self.root.bind("<B1-Motion>", self.drag)
+            self.root.bind("<Escape>", self.exit_program)
         
         # 设置窗口背景
         self.root.configure(bg="#2c3e50")
@@ -45,8 +54,10 @@ class FloatingImageDetector:
         # 创建界面组件
         self.create_widgets()
         
-        # 启动主循环
-        self.root.mainloop()
+        # 只有在非嵌入模式下才启动主循环
+        if not self.embedded:
+            # 启动主循环
+            self.root.mainloop()
     
     def start_drag(self, event):
         """开始拖动窗口"""
@@ -65,10 +76,10 @@ class FloatingImageDetector:
         title_label = tk.Label(
             self.root,
             text="界面检测工具",
-            font=("微软雅黑", 12, "bold"),
+            font=("微软雅黑", 10, "bold"),
             fg="white",
             bg="#34495e",
-            height=2
+            height=1
         )
         title_label.pack(fill=tk.X)
         
@@ -78,60 +89,64 @@ class FloatingImageDetector:
         status_label = tk.Label(
             self.root,
             textvariable=self.status_var,
-            font=("微软雅黑", 11, "bold"),
+            font=("微软雅黑", 9, "bold"),
             fg="white",
             bg="#2c3e50",
-            wraplength=260,
-            height=2,
+            wraplength=200,
+            height=1,
             justify="center"
         )
-        status_label.pack(pady=5, padx=10, fill=tk.BOTH, expand=True)
+        status_label.pack(pady=2, padx=5, fill=tk.BOTH, expand=True)
         
         # 创建按钮框架
         button_frame = tk.Frame(self.root, bg="#2c3e50")
-        button_frame.pack(pady=5, padx=10, fill=tk.X)
+        button_frame.pack(pady=2, padx=5, fill=tk.X)
         
         # 创建开始/停止检测按钮
         self.detect_button = tk.Button(
             button_frame,
             text="开始检测",
             command=self.toggle_detection,
-            font=("微软雅黑", 10, "bold"),
+            font=("微软雅黑", 8, "bold"),
             fg="white",
             bg="#27ae60",
             activebackground="#229954",
             bd=0,
             relief=tk.FLAT,
-            padx=5,
-            pady=4
+            padx=3,
+            pady=2
         )
-        self.detect_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+        self.detect_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
         
-        # 创建退出按钮
-        exit_button = tk.Button(
-            button_frame,
-            text="退出",
-            command=self.exit_program,
-            font=("微软雅黑", 10, "bold"),
-            fg="white",
-            bg="#e74c3c",
-            activebackground="#c0392b",
-            bd=0,
-            relief=tk.FLAT,
-            padx=5,
-            pady=4
-        )
-        exit_button.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=2)
+        # 只有在非嵌入模式下才显示退出按钮
+        if not self.embedded:
+            # 创建退出按钮
+            exit_button = tk.Button(
+                button_frame,
+                text="退出",
+                command=self.exit_program,
+                font=("微软雅黑", 8, "bold"),
+                fg="white",
+                bg="#e74c3c",
+                activebackground="#c0392b",
+                bd=0,
+                relief=tk.FLAT,
+                padx=3,
+                pady=2
+            )
+            exit_button.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=1)
         
-        # 创建提示标签
-        tip_label = tk.Label(
-            self.root,
-            text="ESC键快速退出",
-            font=("微软雅黑", 8),
-            fg="#bdc3c7",
-            bg="#2c3e50"
-        )
-        tip_label.pack(pady=(0, 5))
+        # 只有在非嵌入模式下才显示提示标签
+        if not self.embedded:
+            # 创建提示标签
+            tip_label = tk.Label(
+                self.root,
+                text="ESC键快速退出",
+                font=("微软雅黑", 8),
+                fg="#bdc3c7",
+                bg="#2c3e50"
+            )
+            tip_label.pack(pady=(0, 2))
     
     def load_reference_images(self):
         """加载所有参考图像，从img/test下的所有子文件夹"""
@@ -320,7 +335,9 @@ class FloatingImageDetector:
         self.is_detecting = False
         if self.detection_thread is not None:
             self.detection_thread.join()
-        self.root.destroy()
+        # 只有在非嵌入模式下才销毁窗口
+        if not self.embedded:
+            self.root.destroy()
 
 if __name__ == "__main__":
     try:
