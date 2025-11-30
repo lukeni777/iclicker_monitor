@@ -16,7 +16,7 @@ class IntegratedFloatingPanel:
         # 创建主窗口
         self.root = tk.Tk()
         self.root.title("集成控制面板")
-        self.root.geometry("400x400")  # 足够大的尺寸以显示所有信息
+        self.root.geometry("400x500")  # 增加高度实现变长效果
         self.root.overrideredirect(True)  # 去除窗口边框
         self.root.attributes("-alpha", 0.95)  # 设置窗口透明度
         self.root.attributes("-topmost", True)  # 窗口置顶
@@ -77,7 +77,23 @@ class IntegratedFloatingPanel:
             fg="white",
             bg="#34495e"
         )
-        title_label.pack(pady=5)
+        title_label.pack(side=tk.LEFT, pady=5, padx=5)
+        
+        # 右上角关闭按钮
+        self.close_button = tk.Button(
+            title_frame,
+            text="×",
+            command=self.exit_program,
+            font=("微软雅黑", 14, "bold"),
+            fg="white",
+            bg="#e74c3c",
+            activebackground="#c0392b",
+            bd=0,
+            relief=tk.FLAT,
+            width=3,
+            height=1
+        )
+        self.close_button.pack(side=tk.RIGHT, pady=2, padx=2)
         
         # 当前时间和日期显示
         time_frame = tk.Frame(self.root, bg="#2c3e50")
@@ -178,60 +194,9 @@ class IntegratedFloatingPanel:
         # 初始化屏幕检测工具（嵌入模式）
         self.image_detector = FloatingImageDetector(parent=self.detector_container, embedded=True)
         
-        # 控制按钮区域
-        button_frame = tk.Frame(self.root, bg="#2c3e50")
-        button_frame.pack(fill=tk.X, padx=10, pady=10)
+        # 不再显示控制按钮区域
         
-        # 开始按钮
-        self.start_button = tk.Button(
-            button_frame,
-            text="开始",
-            command=self.start_program,
-            font=("微软雅黑", 10, "bold"),
-            fg="white",
-            bg="#27ae60",
-            activebackground="#229954",
-            bd=0,
-            relief=tk.FLAT,
-            padx=10,
-            pady=5
-        )
-        self.start_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
-        
-        # 暂停按钮
-        self.pause_button = tk.Button(
-            button_frame,
-            text="暂停",
-            command=self.pause_program,
-            font=("微软雅黑", 10, "bold"),
-            fg="white",
-            bg="#f39c12",
-            activebackground="#e67e22",
-            bd=0,
-            relief=tk.FLAT,
-            padx=10,
-            pady=5,
-            state=tk.DISABLED
-        )
-        self.pause_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
-        
-        # 关闭按钮
-        self.exit_button = tk.Button(
-            button_frame,
-            text="关闭",
-            command=self.exit_program,
-            font=("微软雅黑", 10, "bold"),
-            fg="white",
-            bg="#e74c3c",
-            activebackground="#c0392b",
-            bd=0,
-            relief=tk.FLAT,
-            padx=10,
-            pady=5
-        )
-        self.exit_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
-        
-        # 提示标签
+        # 简化的提示标签
         tip_label = tk.Label(
             self.root,
             text="拖动窗口任意位置移动 | ESC键快速退出",
@@ -288,32 +253,7 @@ class IntegratedFloatingPanel:
                 print(f"时间更新出错: {e}")
                 time.sleep(1)
     
-    def start_program(self):
-        """开始程序"""
-        if not self.is_running:
-            self.is_running = True
-            self.is_paused = False
-            
-            # 更新按钮状态
-            self.start_button.config(text="运行中", state=tk.DISABLED, bg="#7f8c8d")
-            self.pause_button.config(state=tk.NORMAL)
-            
-            # 启动屏幕检测
-            self.start_image_detection()
-    
-    def pause_program(self):
-        """暂停程序"""
-        if self.is_running:
-            if not self.is_paused:
-                self.is_paused = True
-                self.pause_button.config(text="继续")
-                # 暂停屏幕检测
-                self.pause_image_detection()
-            else:
-                self.is_paused = False
-                self.pause_button.config(text="暂停")
-                # 继续屏幕检测
-                self.resume_image_detection()
+    # 不再需要程序控制功能，因为按钮已被删除
     
     def start_image_detection(self):
         """启动屏幕检测"""
@@ -344,6 +284,20 @@ class IntegratedFloatingPanel:
         # 停止所有线程和功能
         self.is_running = False
         self.is_paused = False
+        
+        # 如果屏幕检测工具正在运行，确保停止它
+        if self.image_detector and hasattr(self.image_detector, 'toggle_detection'):
+            try:
+                # 确保检测已停止
+                self.image_detector.detection_running = False
+                if hasattr(self.image_detector, 'stop_detection'):
+                    self.image_detector.stop_detection()
+            except Exception as e:
+                print(f"停止屏幕检测时出错: {e}")
+        
+        # 确保所有线程都已停止
+        self.time_update_thread = None
+        self.detection_thread = None
         
         # 销毁窗口
         self.root.destroy()
