@@ -16,7 +16,7 @@ class IntegratedFloatingPanel:
         # 创建主窗口
         self.root = tk.Tk()
         self.root.title("集成控制面板")
-        self.root.geometry("400x500")  # 增加高度实现变长效果
+        self.root.geometry("400x600")  # 增加高度以容纳鼠标控制区域
         self.root.overrideredirect(True)  # 去除窗口边框
         self.root.attributes("-alpha", 0.95)  # 设置窗口透明度
         self.root.attributes("-topmost", True)  # 窗口置顶
@@ -32,6 +32,7 @@ class IntegratedFloatingPanel:
         # 初始化变量
         self.is_running = False
         self.is_paused = False
+        self.mouse_control_running = False  # 鼠标控制功能状态
         self.manager = CourseManager()  # 课程管理器实例（独立实例，因为这是一个独立的程序）
         self.image_detector = None  # 屏幕检测工具实例
         self.detection_thread = None
@@ -194,9 +195,66 @@ class IntegratedFloatingPanel:
         # 初始化屏幕检测工具（嵌入模式）
         self.image_detector = FloatingImageDetector(parent=self.detector_container, embedded=True)
         
-        # 不再显示控制按钮区域
+        # 鼠标控制区域
+        mouse_frame = tk.LabelFrame(
+            self.root,
+            text="鼠标控制",
+            bg="#2c3e50",
+            fg="#ecf0f1",
+            font=("微软雅黑", 10)
+        )
+        mouse_frame.pack(fill=tk.X, padx=10, pady=5)
         
-        # 简化的提示标签
+        # 鼠标控制状态标签
+        self.mouse_status_var = tk.StringVar()
+        self.mouse_status_var.set("鼠标控制未启动")
+        self.mouse_status_label = tk.Label(
+            mouse_frame,
+            textvariable=self.mouse_status_var,
+            font=("微软雅黑", 10),
+            fg="#e74c3c",
+            bg="#2c3e50"
+        )
+        self.mouse_status_label.pack(pady=5)
+        
+        # 鼠标控制按钮区域
+        mouse_button_frame = tk.Frame(mouse_frame, bg="#2c3e50")
+        mouse_button_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # 开始按钮
+        self.start_mouse_button = tk.Button(
+            mouse_button_frame,
+            text="开始",
+            command=self.start_mouse_control,
+            font=("微软雅黑", 10, "bold"),
+            fg="white",
+            bg="#27ae60",
+            activebackground="#229954",
+            bd=0,
+            relief=tk.FLAT,
+            padx=10,
+            pady=5
+        )
+        self.start_mouse_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+        
+        # 停止按钮
+        self.stop_mouse_button = tk.Button(
+            mouse_button_frame,
+            text="停止",
+            command=self.stop_mouse_control,
+            font=("微软雅黑", 10, "bold"),
+            fg="white",
+            bg="#e74c3c",
+            activebackground="#c0392b",
+            bd=0,
+            relief=tk.FLAT,
+            padx=10,
+            pady=5,
+            state=tk.DISABLED
+        )
+        self.stop_mouse_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+        
+        # 提示标签
         tip_label = tk.Label(
             self.root,
             text="拖动窗口任意位置移动 | ESC键快速退出",
@@ -255,6 +313,26 @@ class IntegratedFloatingPanel:
     
     # 不再需要程序控制功能，因为按钮已被删除
     
+    def start_mouse_control(self):
+        """启动鼠标控制功能"""
+        # 仅实现界面状态更新，不包含实际控制逻辑
+        self.mouse_control_running = True
+        self.start_mouse_button.config(state=tk.DISABLED)
+        self.stop_mouse_button.config(state=tk.NORMAL)
+        self.mouse_status_var.set("鼠标控制已启动")
+        self.mouse_status_label.config(fg="#2ecc71")
+        print("鼠标控制功能启动")
+    
+    def stop_mouse_control(self):
+        """停止鼠标控制功能"""
+        # 仅实现界面状态更新，不包含实际控制逻辑
+        self.mouse_control_running = False
+        self.start_mouse_button.config(state=tk.NORMAL)
+        self.stop_mouse_button.config(state=tk.DISABLED)
+        self.mouse_status_var.set("鼠标控制已停止")
+        self.mouse_status_label.config(fg="#e74c3c")
+        print("鼠标控制功能停止")
+    
     def start_image_detection(self):
         """启动屏幕检测"""
         if self.image_detector:
@@ -284,6 +362,7 @@ class IntegratedFloatingPanel:
         # 停止所有线程和功能
         self.is_running = False
         self.is_paused = False
+        self.mouse_control_running = False
         
         # 如果屏幕检测工具正在运行，确保停止它
         if self.image_detector and hasattr(self.image_detector, 'toggle_detection'):
