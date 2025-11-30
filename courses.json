@@ -55,7 +55,7 @@
   },
   {
     "id": 7,
-    "day": "周一",
+    "day": "周六",
     "start_time": "13:00",
     "end_time": "23:59",
     "course_code": "Testing001",
