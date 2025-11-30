@@ -5,8 +5,9 @@
     "start_time": "11:00",
     "end_time": "12:30",
     "course_code": "DSCI 561",
-    "course_name": "section 002",
-    "created_at": "2025-11-24 08:27:28"
+    "course_name": "DSCI 561",
+    "created_at": "2025-11-24 08:27:28",
+    "updated_at": "2025-11-29 22:27:31"
   },
   {
     "id": 2,
@@ -14,8 +15,9 @@
     "start_time": "11:00",
     "end_time": "12:30",
     "course_code": "DSCI 561",
-    "course_name": "section 002",
-    "created_at": "2025-11-24 08:28:16"
+    "course_name": "DSCI 561",
+    "created_at": "2025-11-24 08:28:16",
+    "updated_at": "2025-11-29 22:27:27"
   },
   {
     "id": 3,
@@ -23,8 +25,9 @@
     "start_time": "08:00",
     "end_time": "09:30",
     "course_code": "DSCI 573",
-    "course_name": "section 002",
-    "created_at": "2025-11-24 08:29:32"
+    "course_name": "DSCI 573",
+    "created_at": "2025-11-24 08:29:32",
+    "updated_at": "2025-11-29 22:27:21"
   },
   {
     "id": 4,
@@ -32,8 +35,9 @@
     "start_time": "08:00",
     "end_time": "09:30",
     "course_code": "DSCI 573",
-    "course_name": "section 002",
-    "created_at": "2025-11-24 08:29:37"
+    "course_name": "DSCI 573",
+    "created_at": "2025-11-24 08:29:37",
+    "updated_at": "2025-11-29 22:27:17"
   },
   {
     "id": 5,
@@ -41,8 +45,9 @@
     "start_time": "09:30",
     "end_time": "11:00",
     "course_code": "DSCI 522",
-    "course_name": "-",
-    "created_at": "2025-11-24 08:29:59"
+    "course_name": "DSCI 522",
+    "created_at": "2025-11-24 08:29:59",
+    "updated_at": "2025-11-29 22:27:11"
   },
   {
     "id": 6,
@@ -50,8 +55,9 @@
     "start_time": "09:30",
     "end_time": "11:00",
     "course_code": "DSCI 522",
-    "course_name": "-",
-    "created_at": "2025-11-24 08:30:07"
+    "course_name": "DSCI 522",
+    "created_at": "2025-11-24 08:30:07",
+    "updated_at": "2025-11-29 22:27:05"
   },
   {
     "id": 7,
@@ -59,7 +65,7 @@
     "start_time": "13:00",
     "end_time": "23:59",
     "course_code": "Testing001",
-    "course_name": "-",
+    "course_name": "Testing001",
     "created_at": "2025-11-24 13:35:29"
   }
 ]

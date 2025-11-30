@@ -57,9 +57,9 @@ def main():
         course_window.transient(root)  # 设置为主窗口的子窗口
         course_window.grab_set()  # 模态窗口
         
-        # 在新窗口中创建CourseGUI实例
+        # 在新窗口中创建CourseGUI实例，传递现有的manager实例
         from course_gui import CourseGUI
-        CourseGUI(course_window)
+        CourseGUI(course_window, manager)
     
     # 创建管理课程按钮
     manage_button = ttk.Button(course_gui_frame, text="管理课程", command=open_course_management, width=20)

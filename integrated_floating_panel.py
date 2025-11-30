@@ -32,7 +32,7 @@ class IntegratedFloatingPanel:
         # 初始化变量
         self.is_running = False
         self.is_paused = False
-        self.manager = CourseManager()  # 课程管理器实例
+        self.manager = CourseManager()  # 课程管理器实例（独立实例，因为这是一个独立的程序）
         self.image_detector = None  # 屏幕检测工具实例
         self.detection_thread = None
         

@@ -17,15 +17,15 @@ def validate_time_format(time_str):
         return False
 
 class CourseGUI:
-    def __init__(self, root):
+    def __init__(self, root, manager=None):
         """初始化课程管理GUI"""
         self.root = root
         self.root.title("课程表管理系统")
         self.root.geometry("900x600")
         self.root.resizable(True, True)
         
-        # 初始化课程管理器
-        self.manager = CourseManager()
+        # 初始化课程管理器，如果传入了manager实例则使用它，否则创建新实例
+        self.manager = manager if manager else CourseManager()
         self.selected_course_id = None
         
         # 创建界面
@@ -471,7 +471,10 @@ class CourseGUI:
 def main():
     """主函数"""
     root = tk.Tk()
-    app = CourseGUI(root)
+    # 创建CourseManager实例
+    manager = CourseManager()
+    # 将manager实例传递给CourseGUI
+    app = CourseGUI(root, manager)
     root.mainloop()
 
 if __name__ == "__main__":
