@@ -521,19 +521,41 @@ class IntegratedFloatingPanel:
                 self.log_message("判断", f"当前课程: {current_course['course_name']}，进行中")
                 return "course_in_progress", current_course
             
-            # 检查是否处于课程切换时段（前一节课结束后，下一节课开始前）
-            next_course = None
-            last_end_time = "00:00"
+            # 检查是否处于课程切换时段（严格按照用户要求判断）
+            # 1. 查找刚刚结束的课程
+            last_course = None
+            for course in today_courses:
+                if course["end_time"] < current_time:
+                    if not last_course or course["end_time"] > last_course["end_time"]:
+                        last_course = course
             
+            # 2. 查找即将开始的课程
+            next_course = None
             for course in today_courses:
                 if course["start_time"] > current_time:
-                    next_course = course
-                    break
-                last_end_time = max(last_end_time, course["end_time"])
+                    if not next_course or course["start_time"] < next_course["start_time"]:
+                        next_course = course
             
-            if next_course and last_end_time < current_time < next_course["start_time"]:
-                self.log_message("判断", f"当前处于课程切换时段: 最后一节课结束于{last_end_time}，下一节课{next_course['course_name']}开始于{next_course['start_time']}")
-                return "course_switching", (next_course, last_end_time)
+            # 3. 判断是否满足课程切换条件
+            # 严格条件：当前时间处于过渡时间区间内，且在当前时间之前有一节课刚刚结束，之后有一节课即将开始
+            if last_course and next_course:
+                last_end_time = last_course["end_time"]
+                next_start_time = next_course["start_time"]
+                
+                if last_end_time < current_time < next_start_time:
+                    # 检查当前时间是否确实是在刚刚结束的课程之后（确保有一节课刚刚结束）
+                    # 转换为分钟数进行比较，更精确地判断时间差
+                    def time_to_minutes(time_str):
+                        hours, minutes = map(int, time_str.split(':'))
+                        return hours * 60 + minutes
+                    
+                    current_minutes = time_to_minutes(current_time)
+                    last_end_minutes = time_to_minutes(last_end_time)
+                    
+                    # 确认当前时间确实在最后一节课结束之后
+                    if current_minutes > last_end_minutes:
+                        self.log_message("判断", f"当前处于课程切换时段: 刚刚结束的课程{last_course['course_name']}结束于{last_end_time}，下一节课{next_course['course_name']}开始于{next_start_time}")
+                        return "course_switching", (next_course, last_end_time)
             
             # 检查是否有即将开始的课程（课程开始前）
             if next_course:
@@ -593,7 +615,7 @@ class IntegratedFloatingPanel:
                 return False
             
             # 获取join按钮图片路径
-            join_button_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "course_starts", "join.PNG")
+            join_button_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "test", "course_starts", "join.PNG")
             if not os.path.exists(join_button_path):
                 self.log_message("错误", "未找到join按钮图片")
                 return False
@@ -731,7 +753,25 @@ class IntegratedFloatingPanel:
                         # 检查当前界面，执行相应的小行为
                         current_interface = self.image_detector.current_interface if self.image_detector else "未检测"
                         
-                        if current_interface == "course_starts":
+                        if current_interface == "course_menu":
+                            # 当检测到Course Menu界面时，点击当前正在进行的课程图标
+                            self.log_message("判断", f"当前界面为Course Menu，且当前有课程进行中: {current_course['course_name']}")
+                            self.update_behavior_status("课程进行中", "进入当前课程界面")
+                            
+                            # 获取当前课程图标路径
+                            course_icon_path = self.manager.get_course_icon_path(current_course["course_name"])
+                            if not course_icon_path:
+                                self.log_message("错误", f"未找到当前课程图标: {current_course['course_name']}")
+                            else:
+                                # 在屏幕上查找课程图标
+                                match_result = self.match_image(course_icon_path)
+                                if match_result:
+                                    center_x, center_y, match_score = match_result
+                                    # 执行点击操作
+                                    self.perform_mouse_click(center_x, center_y, f"点击{current_course['course_name']}课程图标")
+                                else:
+                                    self.log_message("错误", f"未在屏幕上找到{current_course['course_name']}课程图标")
+                        elif current_interface == "course_starts":
                             self.enter_poll_behavior()
                         elif current_interface == "poll_starts":
                             self.answer_poll_behavior()
