@@ -54,13 +54,32 @@
     "created_at": "2025-11-24 08:30:07"
   },
   {
-    "id": 7,
+    "id": 9,
     "day": "周日",
-    "start_time": "16:38",
-    "end_time": "23:59",
-    "course_code": "Testing001",
-    "course_name": "Testing001",
-    "created_at": "2025-11-24 13:35:29",
-    "updated_at": "2025-11-30 16:37:11"
+    "start_time": "17:36",
+    "end_time": "17:37",
+    "course_code": "DSCI522",
+    "course_name": "DSCI522",
+    "created_at": "2025-11-30 17:27:03",
+    "updated_at": "2025-11-30 17:33:21"
+  },
+  {
+    "id": 10,
+    "day": "周日",
+    "start_time": "17:39",
+    "end_time": "17:40",
+    "course_code": "DSCI561",
+    "course_name": "DSCI561",
+    "created_at": "2025-11-30 17:28:41",
+    "updated_at": "2025-11-30 17:33:44"
+  },
+  {
+    "id": 11,
+    "day": "周日",
+    "start_time": "17:43",
+    "end_time": "17:44",
+    "course_code": "DSCI573",
+    "course_name": "DSCI573",
+    "created_at": "2025-11-30 17:34:23"
   }
 ]
