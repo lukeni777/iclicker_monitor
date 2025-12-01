@@ -53,6 +53,8 @@ class IntegratedFloatingPanel:
         
         # 答题点击间隔控制
         self.last_answer_click_time = 0  # 上一次答题点击的时间戳（用于限制重复点击）
+        # 返回点击间隔控制
+        self.last_return_click_time = 0  # 上一次返回点击的时间戳（用于限制重复点击）
         
         # 当前时间和日期
         self.current_time = datetime.datetime.now().strftime("%H:%M:%S")
@@ -698,6 +700,12 @@ class IntegratedFloatingPanel:
     def return_behavior(self):
         """返回行为"""
         try:
+            # 检查点击间隔（5秒）
+            current_time = time.time()
+            if current_time - self.last_return_click_time < 5:
+                self.log_message("判断", f"返回点击间隔不足5秒（当前间隔: {current_time - self.last_return_click_time:.2f}秒），跳过点击")
+                return False
+            
             # 检查当前界面是否需要返回
             current_interface = self.image_detector.current_interface if self.image_detector else "未检测"
             self.log_message("判断", f"当前界面: {current_interface}")
@@ -719,7 +727,11 @@ class IntegratedFloatingPanel:
                 leftmost_match = min(matches, key=lambda x: x[0])
                 center_x, center_y, match_score = leftmost_match
                 # 执行点击操作
-                return self.perform_mouse_click(center_x, center_y, "点击最左侧的return按钮返回")
+                success = self.perform_mouse_click(center_x, center_y, "点击最左侧的return按钮返回")
+                if success:
+                    # 更新最后点击时间
+                    self.last_return_click_time = current_time
+                return success
             else:
                 self.log_message("错误", "未在屏幕上找到return按钮")
                 return False
@@ -810,22 +822,35 @@ class IntegratedFloatingPanel:
                         current_interface = self.image_detector.current_interface if self.image_detector else "未检测"
                         self.log_message("调试", f"当前界面: {current_interface}")
                         
-                        if current_interface == "leave_session":
-                            # 退出行为
-                            self.log_message("调试", "检测到leave_session界面，准备执行退出行为")
-                            self.update_behavior_status("课间时间", "退出行为")
-                            self.exit_session_behavior()
-                            self.log_message("调试", "退出行为执行完成")
-                        elif current_interface != "course_menu" and current_interface != "未检测":
-                            # 返回行为（非Course Menu界面返回上一级）
-                            self.log_message("调试", f"检测到非course_menu界面: {current_interface}，准备执行返回行为")
-                            self.update_behavior_status("课间时间", "返回行为")
-                            self.return_behavior()
-                            self.log_message("调试", "返回行为执行完成")
-                        else:
-                            # 当前没有可执行的小行为
+                        if current_interface == "course_menu":
+                            # 当前已在课程菜单界面，无需操作
                             self.log_message("调试", "当前已在course_menu界面，更新为等待中")
                             self.update_behavior_status("课间时间", "等待中")
+                        else:
+                            # 首先检查是否有退出行为（优先级更高）
+                            if current_interface == "leave_session":
+                                # 退出行为
+                                self.log_message("调试", "检测到leave_session界面，准备执行退出行为")
+                                self.update_behavior_status("课间时间", "退出行为")
+                                self.exit_session_behavior()
+                                self.log_message("调试", "退出行为执行完成")
+                            else:
+                                # 检查是否存在返回按钮，只要存在就执行返回行为
+                                return_button_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "click", "return.PNG")
+                                if os.path.exists(return_button_path):
+                                    # 在屏幕上查找所有匹配的return按钮
+                                    matches = self.find_all_matches(return_button_path)
+                                    if matches:
+                                        self.log_message("调试", f"检测到返回按钮，准备执行返回行为")
+                                        self.update_behavior_status("课间时间", "返回行为")
+                                        self.return_behavior()
+                                        self.log_message("调试", "返回行为执行完成")
+                                    else:
+                                        self.log_message("调试", "未检测到返回按钮，更新为等待中")
+                                        self.update_behavior_status("课间时间", "等待中")
+                                else:
+                                    self.log_message("错误", "未找到return按钮图片")
+                                    self.update_behavior_status("课间时间", "等待中")
                     
                     else:
                         # 未知状态，等待中
