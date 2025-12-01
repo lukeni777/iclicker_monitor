@@ -51,6 +51,9 @@ class IntegratedFloatingPanel:
         self.current_main_behavior = "未启动"  # 当前大型行为状态
         self.current_sub_behavior = "等待中"  # 当前小行为状态
         
+        # 答题点击间隔控制
+        self.last_answer_click_time = 0  # 上一次答题点击的时间戳（用于限制重复点击）
+        
         # 当前时间和日期
         self.current_time = datetime.datetime.now().strftime("%H:%M:%S")
         self.current_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -636,6 +639,12 @@ class IntegratedFloatingPanel:
     def answer_poll_behavior(self):
         """答题行为"""
         try:
+            # 检查是否需要限制重复点击（5秒间隔）
+            current_time = time.time()
+            if current_time - self.last_answer_click_time < 5:
+                self.log_message("判断", f"答题点击间隔不足5秒（当前间隔: {current_time - self.last_answer_click_time:.2f}秒），跳过点击")
+                return False
+            
             self.update_behavior_status("课程进行中", "答题行为")
             
             # 检查当前界面是否为Poll Starts
@@ -657,7 +666,11 @@ class IntegratedFloatingPanel:
             if match_result:
                 center_x, center_y, match_score = match_result
                 # 执行点击操作
-                return self.perform_mouse_click(center_x, center_y, "点击A选项答题")
+                success = self.perform_mouse_click(center_x, center_y, "点击A选项答题")
+                if success:
+                    # 更新最后点击时间
+                    self.last_answer_click_time = current_time
+                return success
             else:
                 self.log_message("错误", "未在屏幕上找到A选项")
                 return False
