@@ -255,9 +255,9 @@ class IntegratedFloatingPanel:
         )
         self.mouse_status_label.pack(pady=5)
         
-        # 大型行为状态显示
+        # 时间分类显示
         self.main_behavior_var = tk.StringVar()
-        self.main_behavior_var.set("大型行为状态: 未启动")
+        self.main_behavior_var.set("当前时间分类: 未启动")
         self.main_behavior_label = tk.Label(
             mouse_frame,
             textvariable=self.main_behavior_var,
@@ -269,7 +269,7 @@ class IntegratedFloatingPanel:
         
         # 小行为状态显示
         self.sub_behavior_var = tk.StringVar()
-        self.sub_behavior_var.set("小行为状态: 等待中")
+        self.sub_behavior_var.set("当前小行为: 等待中")
         self.sub_behavior_label = tk.Label(
             mouse_frame,
             textvariable=self.sub_behavior_var,
@@ -352,16 +352,22 @@ class IntegratedFloatingPanel:
     
     def update_time(self):
         """实时更新时间"""
-        while True:
-            try:
+        try:
+            while True:
+                # 获取当前时间
                 now = datetime.datetime.now()
-                self.current_time = now.strftime("%H:%M:%S")
-                self.current_date = now.strftime("%Y-%m-%d")
-                self.current_day = "周" + "一二三四五六日"[now.weekday()]
+                current_time = now.strftime("%H:%M:%S")
+                current_date = now.strftime("%Y-%m-%d")
+                current_day = "周" + "一二三四五六日"[now.weekday()]
                 
-                # 更新界面显示
-                self.root.after(0, lambda: self.time_var.set(self.current_time))
-                self.root.after(0, lambda: self.date_var.set(f"{self.current_date} {self.current_day}"))
+                # 更新UI - 使用after方法确保在主线程中更新
+                self.current_time = current_time
+                self.current_date = current_date
+                self.current_day = current_day
+                
+                # 使用after方法在主线程中更新UI，使用默认参数避免闭包问题
+                self.root.after(0, lambda ct=current_time: self.time_var.set(ct))
+                self.root.after(0, lambda cd=current_date, cdy=current_day: self.date_var.set(f"{cd} {cdy}"))
                 
                 # 每分钟检查一次是否需要重新加载课程（比如日期变更）
                 if now.second == 0 and now.minute % 1 == 0:
@@ -369,22 +375,29 @@ class IntegratedFloatingPanel:
                 
                 # 每秒更新一次
                 time.sleep(1)
-            except Exception as e:
-                print(f"时间更新出错: {e}")
-                self.log_message("错误", f"时间更新出错: {e}")
-                time.sleep(1)
+        except Exception as e:
+            print(f"时间更新出错: {e}")
+            # 使用after方法在主线程中记录日志
+            self.root.after(0, lambda e=e: self.log_message("错误", f"时间更新出错: {e}"))
+            time.sleep(1)
     
     def update_behavior_status(self, main_behavior, sub_behavior=None):
         """更新行为状态显示"""
+        # 更新时间分类（上课时间/课间时间）
         if main_behavior != self.current_main_behavior:
             self.current_main_behavior = main_behavior
-            self.root.after(0, lambda: self.main_behavior_var.set(f"大型行为状态: {main_behavior}"))
-            self.log_message("状态", f"大型行为状态更新为: {main_behavior}")
+            self.root.after(0, lambda: self.main_behavior_var.set(f"当前时间分类: {main_behavior}"))
+            self.log_message("状态", f"时间分类更新为: {main_behavior}")
         
+        # 更新小行为状态
         if sub_behavior is not None and sub_behavior != self.current_sub_behavior:
             self.current_sub_behavior = sub_behavior
-            self.root.after(0, lambda: self.sub_behavior_var.set(f"小行为状态: {sub_behavior}"))
+            self.root.after(0, lambda: self.sub_behavior_var.set(f"当前小行为: {sub_behavior}"))
             self.log_message("状态", f"小行为状态更新为: {sub_behavior}")
+        elif sub_behavior is None and self.current_sub_behavior != "等待中":
+            self.current_sub_behavior = "等待中"
+            self.root.after(0, lambda: self.sub_behavior_var.set(f"当前小行为: 等待中"))
+            self.log_message("状态", f"小行为状态更新为: 等待中")
     
     def match_image(self, image_path, threshold=0.85):
         """在屏幕上查找指定图片的位置"""
@@ -504,7 +517,7 @@ class IntegratedFloatingPanel:
             return None
     
     def get_current_course_status(self):
-        """获取当前课程状态"""
+        """获取当前时间分类（上课时间或课间时间）"""
         try:
             now = datetime.datetime.now()
             current_day = "周" + "一二三四五六日"[now.weekday()]
@@ -513,7 +526,7 @@ class IntegratedFloatingPanel:
             # 获取今日课程
             today_courses = self.manager.get_courses_by_day(current_day)
             
-            # 检查当前是否有课程进行中
+            # 检查当前是否处于上课时间（当前时间在某节课的开始时间到结束时间之间）
             current_course = None
             for course in today_courses:
                 if course["start_time"] <= current_time <= course["end_time"]:
@@ -521,55 +534,29 @@ class IntegratedFloatingPanel:
                     break
             
             if current_course:
-                self.log_message("判断", f"当前课程: {current_course['course_name']}，进行中")
-                return "course_in_progress", current_course
+                self.log_message("判断", f"当前处于上课时间: {current_course['course_name']}")
+                return "上课时间", current_course
             
-            # 检查是否处于课程切换时段（严格按照用户要求判断）
-            # 1. 查找刚刚结束的课程
-            last_course = None
-            for course in today_courses:
-                if course["end_time"] < current_time:
-                    if not last_course or course["end_time"] > last_course["end_time"]:
-                        last_course = course
-            
-            # 2. 查找即将开始的课程
+            # 检查是否处于课间时间（当前时间不在任何课程的时间段内）
+            # 查找下一节课信息（如果有）
             next_course = None
             for course in today_courses:
                 if course["start_time"] > current_time:
                     if not next_course or course["start_time"] < next_course["start_time"]:
                         next_course = course
             
-            # 3. 判断是否满足课程切换条件
-            # 严格条件：当前时间处于过渡时间区间内，且在当前时间之前有一节课刚刚结束，之后有一节课即将开始
-            if last_course and next_course:
-                last_end_time = last_course["end_time"]
-                next_start_time = next_course["start_time"]
-                
-                if last_end_time < current_time < next_start_time:
-                    # 检查当前时间是否确实是在刚刚结束的课程之后（确保有一节课刚刚结束）
-                    # 转换为分钟数进行比较，更精确地判断时间差
-                    def time_to_minutes(time_str):
-                        hours, minutes = map(int, time_str.split(':'))
-                        return hours * 60 + minutes
-                    
-                    current_minutes = time_to_minutes(current_time)
-                    last_end_minutes = time_to_minutes(last_end_time)
-                    
-                    # 确认当前时间确实在最后一节课结束之后
-                    if current_minutes > last_end_minutes:
-                        self.log_message("判断", f"当前处于课程切换时段: 刚刚结束的课程{last_course['course_name']}结束于{last_end_time}，下一节课{next_course['course_name']}开始于{next_start_time}")
-                        return "course_switching", (next_course, last_end_time)
+            # 查找上一节课信息（如果有）
+            last_course = None
+            for course in today_courses:
+                if course["end_time"] < current_time:
+                    if not last_course or course["end_time"] > last_course["end_time"]:
+                        last_course = course
             
-            # 检查是否有即将开始的课程（课程开始前）
-            if next_course:
-                self.log_message("判断", f"当前处于课程开始前: 下一节课{next_course['course_name']}开始于{next_course['start_time']}")
-                return "course_before", next_course
-            
-            self.log_message("判断", "当前没有相关课程状态")
-            return "no_course", None
+            self.log_message("判断", "当前处于课间时间")
+            return "课间时间", (last_course, next_course)
         except Exception as e:
-            self.log_message("错误", f"获取当前课程状态出错: {e}")
-            return "error", None
+            self.log_message("错误", f"获取当前时间分类出错: {e}")
+            return "课间时间", None
     
     def course_before_behavior(self, course):
         """课程开始前行为"""
@@ -681,8 +668,6 @@ class IntegratedFloatingPanel:
     def exit_session_behavior(self):
         """退出行为"""
         try:
-            self.update_behavior_status("课程切换时", "退出行为")
-            
             # 检查当前界面是否为Leave Session
             current_interface = self.image_detector.current_interface if self.image_detector else "未检测"
             self.log_message("判断", f"当前界面: {current_interface}")
@@ -713,7 +698,13 @@ class IntegratedFloatingPanel:
     def return_behavior(self):
         """返回行为"""
         try:
-            self.update_behavior_status("课程切换时", "返回行为")
+            # 检查当前界面是否需要返回
+            current_interface = self.image_detector.current_interface if self.image_detector else "未检测"
+            self.log_message("判断", f"当前界面: {current_interface}")
+            
+            if current_interface == "course_menu":
+                self.log_message("判断", "当前已在课程菜单界面，无需返回")
+                return False
             
             # 获取return按钮图片路径
             return_button_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "click", "return.PNG")
@@ -740,98 +731,127 @@ class IntegratedFloatingPanel:
         """鼠标控制主逻辑"""
         try:
             self.log_message("重要", "鼠标控制功能启动")
+            self.log_message("调试", "鼠标控制主逻辑线程已启动")
             
             # 启动屏幕检测
             if self.image_detector and not self.image_detector.is_detecting:
+                self.log_message("调试", "检测到屏幕检测未启动，准备启动")
                 self.image_detector.toggle_detection()
                 self.log_message("操作", "启动屏幕检测")
+                self.log_message("调试", "屏幕检测启动完成")
             
-            # 监听空格键中断
+            # 设置键盘中断
+            self.log_message("调试", "准备设置键盘中断")
             keyboard.on_press_key('space', lambda _: self.stop_mouse_control())
+            self.log_message("调试", "键盘中断设置完成")
             
             while self.mouse_control_running:
                 try:
-                    # 获取当前课程状态
-                    status, course_info = self.get_current_course_status()
+                    self.log_message("调试", "进入鼠标控制主循环")
+                    # 获取当前时间分类
+                    self.log_message("调试", "准备获取当前时间分类")
+                    time_category, time_info = self.get_current_course_status()
+                    self.log_message("调试", f"当前时间分类: {time_category}, 详细信息: {time_info}")
                     
-                    if status == "course_before":
-                        # 课程开始前行为
-                        course = course_info
-                        self.course_before_behavior(course)
-                    
-                    elif status == "course_in_progress":
-                        # 课程进行中行为
-                        current_course = course_info
+                    if time_category == "上课时间":
+                        self.log_message("调试", "当前处于上课时间")
+                        # 上课时间行为
+                        current_course = time_info
                         
                         # 检查当前界面，执行相应的小行为
                         current_interface = self.image_detector.current_interface if self.image_detector else "未检测"
+                        self.log_message("调试", f"当前界面: {current_interface}")
                         
                         if current_interface == "course_menu":
-                            # 当检测到Course Menu界面时，点击当前正在进行的课程图标
+                            # 当检测到Course Menu界面时，点击当前正在进行的课程图标（课程开始前行为）
                             self.log_message("判断", f"当前界面为Course Menu，且当前有课程进行中: {current_course['course_name']}")
-                            self.update_behavior_status("课程进行中", "进入当前课程界面")
+                            self.update_behavior_status("上课时间", "课程开始前行为")
                             
                             # 获取当前课程图标路径
+                            self.log_message("调试", f"准备获取当前课程图标: {current_course['course_name']}")
                             course_icon_path = self.manager.get_course_icon_path(current_course["course_name"])
                             if not course_icon_path:
                                 self.log_message("错误", f"未找到当前课程图标: {current_course['course_name']}")
                             else:
+                                self.log_message("调试", f"当前课程图标路径: {course_icon_path}")
                                 # 在屏幕上查找课程图标
                                 match_result = self.match_image(course_icon_path)
                                 if match_result:
                                     center_x, center_y, match_score = match_result
+                                    self.log_message("调试", f"找到课程图标，位置: ({center_x}, {center_y})，匹配度: {match_score}")
                                     # 执行点击操作
                                     self.perform_mouse_click(center_x, center_y, f"点击{current_course['course_name']}课程图标")
                                 else:
                                     self.log_message("错误", f"未在屏幕上找到{current_course['course_name']}课程图标")
                         elif current_interface == "course_starts":
+                            # 进入答题行为
+                            self.update_behavior_status("上课时间", "进入答题行为")
+                            self.log_message("调试", "准备执行进入答题行为")
                             self.enter_poll_behavior()
+                            self.log_message("调试", "进入答题行为执行完成")
                         elif current_interface == "poll_starts":
+                            # 答题行为
+                            self.update_behavior_status("上课时间", "答题行为")
+                            self.log_message("调试", "准备执行答题行为")
                             self.answer_poll_behavior()
+                            self.log_message("调试", "答题行为执行完成")
                         else:
-                            self.update_behavior_status("课程进行中", "等待中")
+                            # 当前没有可执行的小行为
+                            self.log_message("调试", f"未检测到特定界面: {current_interface}，更新为等待中")
+                            self.update_behavior_status("上课时间", "等待中")
                     
-                    elif status == "course_switching":
-                        # 课程切换行为
-                        next_course, last_end_time = course_info
+                    elif time_category == "课间时间":
+                        self.log_message("调试", "当前处于课间时间")
+                        # 课间时间行为
+                        last_course, next_course = time_info if isinstance(time_info, tuple) else (None, None)
+                        self.log_message("调试", f"上一节课: {last_course}, 下一节课: {next_course}")
                         
                         # 检查当前界面，执行退出或返回行为
                         current_interface = self.image_detector.current_interface if self.image_detector else "未检测"
+                        self.log_message("调试", f"当前界面: {current_interface}")
                         
                         if current_interface == "leave_session":
-                            # 优先执行退出行为
+                            # 退出行为
+                            self.log_message("调试", "检测到leave_session界面，准备执行退出行为")
+                            self.update_behavior_status("课间时间", "退出行为")
                             self.exit_session_behavior()
-                        elif current_interface == "course_menu":
-                            # 已回到课程菜单，完成切换
-                            self.log_message("判断", "已成功切换到课程菜单界面")
-                            # 检查是否有下一节课
-                            if next_course:
-                                self.log_message("操作", "准备进入下一节课")
-                                # 立即执行课程开始前行为
-                                self.course_before_behavior(next_course)
-                        else:
-                            # 执行返回行为
+                            self.log_message("调试", "退出行为执行完成")
+                        elif current_interface != "course_menu" and current_interface != "未检测":
+                            # 返回行为（非Course Menu界面返回上一级）
+                            self.log_message("调试", f"检测到非course_menu界面: {current_interface}，准备执行返回行为")
+                            self.update_behavior_status("课间时间", "返回行为")
                             self.return_behavior()
-                    
-                    elif status == "no_course":
-                        # 没有课程，等待中
-                        self.update_behavior_status("等待中", "今日无课程")
+                            self.log_message("调试", "返回行为执行完成")
+                        else:
+                            # 当前没有可执行的小行为
+                            self.log_message("调试", "当前已在course_menu界面，更新为等待中")
+                            self.update_behavior_status("课间时间", "等待中")
                     
                     else:
-                        # 错误状态，等待中
-                        self.update_behavior_status("错误", "状态异常")
+                        # 未知状态，等待中
+                        self.log_message("调试", f"当前时间分类未知: {time_category}，更新为等待中")
+                        self.update_behavior_status("未知", "等待中")
                     
                     # 控制循环频率
-                    time.sleep(1)
+                    self.log_message("调试", "准备进入休眠状态")
+                    time.sleep(0.5)
+                    self.log_message("调试", "休眠结束，继续下一次循环")
                     
                 except Exception as e:
                     self.log_message("错误", f"鼠标控制逻辑循环出错: {e}")
+                    import traceback
+                    self.log_message("错误", f"错误堆栈: {traceback.format_exc()}")
                     time.sleep(1)
+                    self.log_message("调试", "错误处理完成，继续下一次循环")
         except Exception as e:
             self.log_message("错误", f"鼠标控制主逻辑出错: {e}")
+            import traceback
+            self.log_message("错误", f"错误堆栈: {traceback.format_exc()}")
         finally:
             # 移除键盘监听
+            self.log_message("调试", "准备移除键盘监听")
             keyboard.unhook_all()
+            self.log_message("调试", "键盘监听移除完成")
             self.log_message("重要", "鼠标控制功能停止")
     
     # 不再需要程序控制功能，因为按钮已被删除
@@ -839,29 +859,39 @@ class IntegratedFloatingPanel:
     def start_mouse_control(self):
         """启动鼠标控制功能"""
         try:
+            self.log_message("调试", "开始启动鼠标控制功能")
             # 启动屏幕检测（如果未启动）
             if self.image_detector and not self.image_detector.is_detecting:
+                self.log_message("调试", "检测到屏幕检测未启动，准备启动")
                 self.image_detector.toggle_detection()
                 self.log_message("操作", "启动屏幕检测")
             
             # 更新界面状态
+            self.log_message("调试", "准备更新界面状态")
             self.mouse_control_running = True
             self.start_mouse_button.config(state=tk.DISABLED)
             self.stop_mouse_button.config(state=tk.NORMAL)
             self.mouse_status_var.set("鼠标控制已启动")
             self.mouse_status_label.config(fg="#2ecc71")
+            self.log_message("调试", "界面状态更新完成")
             
             # 重置行为状态显示
+            self.log_message("调试", "准备重置行为状态显示")
             self.update_behavior_status("准备中", "初始化")
+            self.log_message("调试", "行为状态显示重置完成")
             
             # 启动鼠标控制线程
+            self.log_message("调试", "准备启动鼠标控制线程")
             self.mouse_control_thread = threading.Thread(target=self.mouse_control_logic)
             self.mouse_control_thread.daemon = True
             self.mouse_control_thread.start()
+            self.log_message("调试", "鼠标控制线程已启动")
             
             self.log_message("重要", "鼠标控制功能启动")
         except Exception as e:
             self.log_message("错误", f"启动鼠标控制功能出错: {e}")
+            import traceback
+            self.log_message("错误", f"错误堆栈: {traceback.format_exc()}")
             self.stop_mouse_control()
     
     def stop_mouse_control(self):
@@ -916,36 +946,58 @@ class IntegratedFloatingPanel:
     def exit_program(self, event=None):
         """退出程序"""
         try:
+            self.log_message("操作", "程序开始退出流程")
+            
             # 停止所有线程和功能
+            self.log_message("调试", "准备停止所有线程和功能")
             self.is_running = False
             self.is_paused = False
+            self.log_message("调试", "基础标志状态已更新")
+            
+            # 停止鼠标控制
+            self.log_message("调试", "准备停止鼠标控制")
             self.mouse_control_running = False
             
             # 移除键盘监听
+            self.log_message("调试", "准备移除键盘监听")
             keyboard.unhook_all()
+            self.log_message("调试", "键盘监听移除完成")
             
             # 如果屏幕检测工具正在运行，确保停止它
+            self.log_message("调试", "准备停止屏幕检测")
             if self.image_detector and hasattr(self.image_detector, 'toggle_detection'):
                 try:
                     # 确保检测已停止
+                    self.log_message("调试", "设置屏幕检测状态为停止")
                     self.image_detector.detection_running = False
                     if hasattr(self.image_detector, 'stop_detection'):
+                        self.log_message("调试", "调用屏幕检测停止方法")
                         self.image_detector.stop_detection()
+                    self.log_message("调试", "屏幕检测停止完成")
                 except Exception as e:
                     self.log_message("错误", f"停止屏幕检测时出错: {e}")
+                    import traceback
+                    self.log_message("错误", f"错误堆栈: {traceback.format_exc()}")
             
             # 确保所有线程都已停止
+            self.log_message("调试", "准备确保所有线程都已停止")
             self.time_update_thread = None
             self.detection_thread = None
             if self.mouse_control_thread:
+                self.log_message("调试", "等待鼠标控制线程结束")
                 self.mouse_control_thread.join(timeout=1.0)
+                self.log_message("调试", "鼠标控制线程结束")
             
             self.log_message("重要", "程序退出")
             
             # 销毁窗口
-            self.root.destroy()
+            self.log_message("调试", "准备销毁主窗口")
+            self.root.after(0, self.root.destroy)
+            self.log_message("调试", "主窗口销毁操作已调度")
         except Exception as e:
-            print(f"退出程序时出错: {e}")
+            self.log_message("错误", f"退出程序时出错: {e}")
+            import traceback
+            self.log_message("错误", f"错误堆栈: {traceback.format_exc()}")
             sys.exit(1)
 
 if __name__ == "__main__":
