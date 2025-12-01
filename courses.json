@@ -52,35 +52,5 @@
     "course_code": "DSCI 522",
     "course_name": "DSCI 522",
     "created_at": "2025-11-24 08:30:07"
-  },
-  {
-    "id": 9,
-    "day": "周日",
-    "start_time": "20:38",
-    "end_time": "20:39",
-    "course_code": "DSCI522",
-    "course_name": "DSCI522",
-    "created_at": "2025-11-30 17:27:03",
-    "updated_at": "2025-11-30 20:37:03"
-  },
-  {
-    "id": 10,
-    "day": "周日",
-    "start_time": "20:41",
-    "end_time": "20:42",
-    "course_code": "DSCI561",
-    "course_name": "DSCI561",
-    "created_at": "2025-11-30 17:28:41",
-    "updated_at": "2025-11-30 20:37:18"
-  },
-  {
-    "id": 11,
-    "day": "周日",
-    "start_time": "20:44",
-    "end_time": "20:45",
-    "course_code": "DSCI573",
-    "course_name": "DSCI573",
-    "created_at": "2025-11-30 17:34:23",
-    "updated_at": "2025-11-30 20:37:33"
   }
 ]
