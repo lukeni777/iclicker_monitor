@@ -284,6 +284,10 @@ class FloatingImageDetector:
             # 仅检测到course_not_started时，判定为course_not_started
             return "course_not_started"
         elif detected_interfaces:
+            # 检查是否同时存在poll_answered和send_answer界面
+            if "poll_answered" in detected_interfaces and "send_answer" in detected_interfaces:
+                print(f"同时检测到poll_answered和send_answer界面，优先处理send_answer界面")
+                return "send_answer"
             # 其他情况，返回第一个检测到的界面
             return detected_interfaces[0]
         else:

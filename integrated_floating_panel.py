@@ -739,6 +739,36 @@ class IntegratedFloatingPanel:
             self.log_message("错误", f"返回行为出错: {e}")
             return False
     
+    def send_answer_behavior(self):
+        """发送答案行为"""
+        try:
+            # 检查当前界面是否为send_answer
+            current_interface = self.image_detector.current_interface if self.image_detector else "未检测"
+            self.log_message("判断", f"当前界面: {current_interface}")
+            
+            if current_interface != "send_answer":
+                self.log_message("判断", "当前不是发送答案界面，不执行发送答案行为")
+                return False
+            
+            # 获取sendanswer按钮图片路径
+            send_answer_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "test", "send_answer", "sendanswer.PNG")
+            if not os.path.exists(send_answer_path):
+                self.log_message("错误", "未找到sendanswer按钮图片")
+                return False
+            
+            # 在屏幕上查找sendanswer按钮
+            match_result = self.match_image(send_answer_path)
+            if match_result:
+                center_x, center_y, match_score = match_result
+                # 执行点击操作
+                return self.perform_mouse_click(center_x, center_y, "点击sendanswer按钮发送答案")
+            else:
+                self.log_message("错误", "未在屏幕上找到sendanswer按钮")
+                return False
+        except Exception as e:
+            self.log_message("错误", f"发送答案行为出错: {e}")
+            return False
+    
     def mouse_control_logic(self):
         """鼠标控制主逻辑"""
         try:
@@ -807,6 +837,12 @@ class IntegratedFloatingPanel:
                             self.log_message("调试", "准备执行答题行为")
                             self.answer_poll_behavior()
                             self.log_message("调试", "答题行为执行完成")
+                        elif current_interface == "send_answer":
+                            # 发送答案行为
+                            self.update_behavior_status("上课时间", "发送答案行为")
+                            self.log_message("调试", "准备执行发送答案行为")
+                            self.send_answer_behavior()
+                            self.log_message("调试", "发送答案行为执行完成")
                         else:
                             # 当前没有可执行的小行为
                             self.log_message("调试", f"未检测到特定界面: {current_interface}，更新为等待中")

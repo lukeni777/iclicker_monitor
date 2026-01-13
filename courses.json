@@ -52,5 +52,15 @@
     "course_code": "DSCI572",
     "course_name": "DSCI572",
     "created_at": "2025-11-24 08:30:07"
+  },
+  {
+    "id": 7,
+    "day": "周二",
+    "start_time": "05:28",
+    "end_time": "06:00",
+    "course_code": "TEST",
+    "course_name": "TEST",
+    "created_at": "2026-01-13 05:24:17",
+    "updated_at": "2026-01-13 05:26:11"
   }
 ]
