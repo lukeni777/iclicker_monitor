@@ -190,18 +190,23 @@ class FloatingImageDetector:
     def capture_screen(self):
         """捕获当前屏幕画面，优化性能和错误处理"""
         try:
-            # 获取屏幕尺寸，仅捕获需要的区域
-            screenshot = pyautogui.screenshot()
+            # 优先使用 mss 进行跨平台截图，失败则回退到 pyautogui
+            try:
+                import mss
+                with mss.mss() as sct:
+                    # sct.monitors[0] 是整个虚拟屏幕（多显示器合并区域）
+                    monitor = sct.monitors[0]
+                    img = np.array(sct.grab(monitor))  # BGRA
+                    bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+                    gray_screenshot = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+            except Exception:
+                # 回退到 pyautogui 截图
+                screenshot = pyautogui.screenshot()
+                screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+                gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
             
-            # 转换为OpenCV格式
-            screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
-            
-            # 转换为灰度图以提高匹配速度
-            gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
-            
-            # 应用轻微的高斯模糊以减少噪声影响
+            # 轻微高斯模糊以减少噪声影响
             gray_screenshot = cv2.GaussianBlur(gray_screenshot, (3, 3), 0)
-            
             return gray_screenshot
         except Exception as e:
             print(f"屏幕捕获出错: {e}")
