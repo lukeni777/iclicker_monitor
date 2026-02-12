@@ -410,9 +410,17 @@ class IntegratedFloatingPanel:
                 self.log_message("错误", f"无法加载图片: {image_path}")
                 return None
             
-            # 捕获当前屏幕
-            screenshot = pyautogui.screenshot()
-            screen_gray = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2GRAY)
+            # 优先使用 mss 截图，失败则回退到 pyautogui
+            try:
+                import mss
+                with mss.mss() as sct:
+                    monitor = sct.monitors[0]
+                    img = np.array(sct.grab(monitor))  # BGRA
+                    bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+                    screen_gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+            except Exception:
+                screenshot = pyautogui.screenshot()
+                screen_gray = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2GRAY)
             
             # 使用模板匹配
             result = cv2.matchTemplate(screen_gray, target_image, cv2.TM_CCOEFF_NORMED)
@@ -441,9 +449,17 @@ class IntegratedFloatingPanel:
                 self.log_message("错误", f"无法加载图片: {image_path}")
                 return []
             
-            # 捕获当前屏幕
-            screenshot = pyautogui.screenshot()
-            screen_gray = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2GRAY)
+            # 优先使用 mss 截图，失败则回退到 pyautogui
+            try:
+                import mss
+                with mss.mss() as sct:
+                    monitor = sct.monitors[0]
+                    img = np.array(sct.grab(monitor))  # BGRA
+                    bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+                    screen_gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+            except Exception:
+                screenshot = pyautogui.screenshot()
+                screen_gray = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2GRAY)
             
             # 使用模板匹配
             result = cv2.matchTemplate(screen_gray, target_image, cv2.TM_CCOEFF_NORMED)
@@ -784,8 +800,17 @@ class IntegratedFloatingPanel:
             
             # 设置键盘中断
             self.log_message("调试", "准备设置键盘中断")
-            keyboard.on_press_key('space', lambda _: self.stop_mouse_control())
-            self.log_message("调试", "键盘中断设置完成")
+            try:
+                keyboard.on_press_key('space', lambda _: self.stop_mouse_control())
+                self.log_message("调试", "键盘中断设置完成（keyboard库）")
+            except Exception as e:
+                self.log_message("错误", f"设置键盘中断失败，回退到Tk绑定: {e}")
+                try:
+                    self.root.unbind('<space>')
+                except Exception:
+                    pass
+                self.root.bind('<space>', lambda event: self.stop_mouse_control())
+                self.log_message("操作", "已通过Tk窗口绑定Space键以停止鼠标控制")
             
             while self.mouse_control_running:
                 try:
@@ -911,7 +936,10 @@ class IntegratedFloatingPanel:
         finally:
             # 移除键盘监听
             self.log_message("调试", "准备移除键盘监听")
-            keyboard.unhook_all()
+            try:
+                keyboard.unhook_all()
+            except Exception as e:
+                self.log_message("错误", f"移除键盘监听失败: {e}")
             self.log_message("调试", "键盘监听移除完成")
             self.log_message("重要", "鼠标控制功能停止")
     
